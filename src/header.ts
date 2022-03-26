@@ -1,5 +1,5 @@
-import getPackageVersion from "@jsbits/get-package-version";
-import chalk from "chalk";
+import getPackageVersion from '@jsbits/get-package-version';
+import chalk from 'chalk';
 
 // / _\ ___| |__  _   _  ___| | ___ _ __
 // \ \ / __| '_ \| | | |/ _ \ |/ _ \ '__|
@@ -20,7 +20,9 @@ const header = chalk`
       ,,,,,}{rgb(93,91,254) /}     {reset / __\\___  _ __  _ __   ___  ___| |_}
 ****   ***{rgb(93,91,254) //}   {reset  / /  / _ \\| '_ \\| '_ \\ / _ \\/ __| __|}
    *******}     {reset / /__| (_) | | | | | | |  __/ (__| |_}
-      {rgb(178,176,255) ‘}        {reset \\____/\\___/|_| |_|_| |_|\\___|\\___|\\__|}  scadm v${getPackageVersion(__dirname)}
+      {rgb(178,176,255) ‘}        {reset \\____/\\___/|_| |_|_| |_|\\___|\\___|\\__|}  scadm v${getPackageVersion(
+        __dirname
+      )}
 
 {cyan scadm} ist ein helper-tool um self-hosted-deployments des Schüler Connect server zu managen.
 `.slice(1, -1);

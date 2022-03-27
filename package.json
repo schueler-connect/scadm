@@ -1,6 +1,6 @@
 {
   "name": "scadm",
-  "version": "0.0.0-alpha.2",
+  "version": "0.0.0-alpha.3",
   "description": "Administrations-tool für das self-hosted SC backend",
   "main": "dist/index.js",
   "targets": {
@@ -24,7 +24,7 @@
   "scripts": {
     "dev": "parcel watch src/index.ts",
     "build": "parcel build src/index.ts",
-		"prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@jsbits/get-package-version": "^1.0.3",

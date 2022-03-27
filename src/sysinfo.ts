@@ -10,8 +10,8 @@ const sysinfo = new Command('sysinfo')
   .handler(async (argv) => {
     const sysinfo = getSystemInfo();
     const l1 = createLogger('scadm');
-    const supported = chalk.green('✔️');
-    const unsupported = chalk.red('✖️');
+    const supported = chalk.green('✔︎');
+    const unsupported = chalk.red('✖︎');
 
     const spinner = ora('Bitte warten').start();
     const dependencies = checkDeps();

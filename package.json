@@ -8,6 +8,9 @@
       "context": "node"
     }
   },
+	"bin": {
+		"scadm": "./dist/index.js"
+	},
   "repository": "https://github.com/schueler-connect/scadm.git",
   "author": "John Sarjeant <sarjeant@schuelerconnect.org>",
   "license": "AGPL-3.0",

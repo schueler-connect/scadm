@@ -1,6 +1,6 @@
 {
   "name": "scadm",
-  "version": "0.0.0-alpha.1",
+  "version": "0.0.0-alpha.2",
   "description": "Administrations-tool für das self-hosted SC backend",
   "main": "dist/index.js",
   "targets": {
@@ -8,9 +8,9 @@
       "context": "node"
     }
   },
-	"bin": {
-		"scadm": "./dist/index.js"
-	},
+  "bin": {
+    "scadm": "./dist/index.js"
+  },
   "repository": "https://github.com/schueler-connect/scadm.git",
   "author": "John Sarjeant <sarjeant@schuelerconnect.org>",
   "license": "AGPL-3.0",

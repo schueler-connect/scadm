@@ -12,7 +12,6 @@ const sysinfo = new Command('sysinfo')
     const l1 = createLogger('scadm');
     const supported = chalk.green('✔️');
     const unsupported = chalk.red('✖️');
-    var systemSupported = true;
 
     const spinner = ora('Bitte warten').start();
     const dependencies = checkDeps();
@@ -35,7 +34,9 @@ const sysinfo = new Command('sysinfo')
             )
       }`
     );
+    var systemSupported = Boolean(sysinfo.os_supported && sysinfo.arch);
     for (const name in dependencies) {
+			if (!dependencies[name as keyof Dependencies].supported) systemSupported = false;
       l1.info(
         `${name}:${' '.repeat(19 - name.length)}${
           dependencies[name as keyof Dependencies].available
@@ -52,7 +53,7 @@ const sysinfo = new Command('sysinfo')
     }
     console.log();
     if (systemSupported) l1.info('System unterstützt');
-    else l1.info('System nicht kompatibel');
+    else l1.info('System nicht unterstützt');
     l1.info(
       `${supported} = Unterstützt\t${unsupported} = Nicht unterstützt\t🚫 = Fehlt`
     );

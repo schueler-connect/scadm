@@ -36,7 +36,7 @@ const sysinfo = new Command('sysinfo')
     );
     var systemSupported = Boolean(sysinfo.os_supported && sysinfo.arch);
     for (const name in dependencies) {
-			if (!dependencies[name as keyof Dependencies].supported) systemSupported = false;
+			if (!dependencies[name as keyof Dependencies].supported && dependencies[name as keyof Dependencies].available) systemSupported = false;
       l1.info(
         `${name}:${' '.repeat(19 - name.length)}${
           dependencies[name as keyof Dependencies].available

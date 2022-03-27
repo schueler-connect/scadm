@@ -23,7 +23,8 @@
   },
   "scripts": {
     "dev": "parcel watch src/index.ts",
-    "build": "parcel build src/index.ts"
+    "build": "parcel build src/index.ts",
+		"prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@jsbits/get-package-version": "^1.0.3",

@@ -10,7 +10,6 @@ export interface DependencyInfo {
 export interface Dependencies {
   docker: DependencyInfo;
   'docker-compose': DependencyInfo;
-  git: DependencyInfo;
 }
 
 export function checkDeps(): Dependencies {
@@ -27,13 +26,6 @@ export function checkDeps(): Dependencies {
           supported: true,
           available: true,
           version: execSync('docker-compose -v').toString().slice(15),
-        }
-      : { supported: false, available: false, version: '' },
-    git: Boolean(which('git'))
-      ? {
-          supported: true,
-          available: true,
-          version: execSync('git --version').toString().slice(4),
         }
       : { supported: false, available: false, version: '' },
   };

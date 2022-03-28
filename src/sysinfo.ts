@@ -3,12 +3,12 @@ import ora from 'ora';
 import { Command } from 'tauris';
 import { checkDeps, Dependencies } from './util/dependencies';
 import createLogger from './util/logger';
-import { getSystemInfo } from './util/system';
+import { getSystemInfo, isSupported } from './util/system';
 
 const sysinfo = new Command('sysinfo')
   .describe('Allgemeine Systeminformationen abrufen')
   .handler(async (argv) => {
-    const sysinfo = getSystemInfo();
+    const sysinfo = await getSystemInfo();
     const l1 = createLogger('scadm');
     const supported = chalk.green('✔︎');
     const unsupported = chalk.red('✖︎');
@@ -34,9 +34,7 @@ const sysinfo = new Command('sysinfo')
             )
       }`
     );
-    var systemSupported = Boolean(sysinfo.os_supported && sysinfo.arch);
     for (const name in dependencies) {
-			if (!dependencies[name as keyof Dependencies].supported && dependencies[name as keyof Dependencies].available) systemSupported = false;
       l1.info(
         `${name}:${' '.repeat(19 - name.length)}${
           dependencies[name as keyof Dependencies].available
@@ -52,8 +50,8 @@ const sysinfo = new Command('sysinfo')
       );
     }
     console.log();
-    if (systemSupported) l1.info('System unterstützt');
-    else l1.info('System nicht unterstützt');
+    if (await isSupported()) l1.info('System unterstützt');
+    else l1.info('😧 System nicht unterstützt');
     l1.info(
       `${supported} = Unterstützt\t${unsupported} = Nicht unterstützt\t🚫 = Fehlt`
     );

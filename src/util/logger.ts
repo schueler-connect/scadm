@@ -43,14 +43,33 @@ const levelColor = {
   error: chalk.red,
 };
 
-export default function createLogger(name: string, parent?: Logger): Logger {
+export default function createLogger(name: string): Logger;
+export default function createLogger(
+  name: string,
+  color: keyof typeof chalk
+): Logger;
+export default function createLogger(name: string, parent: Logger): Logger;
+export default function createLogger(
+  name: string,
+  parent: Logger,
+  color: keyof typeof chalk
+): Logger;
+export default function createLogger(
+  name: string,
+  a1?: keyof typeof chalk | Logger,
+  a2?: keyof typeof chalk
+): Logger {
   const pCols = [chalk.green, chalk.blue, chalk.yellow, chalk.magenta];
-  const prefix = `${parent ? parent.prefix + ' ' : ''}${pCols[
-    _countParents(parent) % pCols.length
-  ](name)}`;
+  const prefix = `${
+    typeof a1 === 'object' && a1 ? a1.prefix + ' ' : ''
+  }${(typeof a1 === 'string'
+    ? (chalk[a1] as any)
+    : a2
+    ? chalk[a2]
+    : pCols[_countParents(a1) % pCols.length])(name)}`;
 
   return {
-    parent: parent,
+    parent: typeof a1 !== 'string' ? a1 : undefined,
     prefix: prefix,
     success: (...message: any[]) =>
       _log(prefix + ` ${levelColor.success('success')}`, ...message),

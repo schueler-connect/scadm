@@ -31,6 +31,8 @@
     "@types/ora": "^3",
     "chalk": "^3",
     "enquirer": "^2.3.6",
+    "is-elevated": "^3.0.0",
+    "linus": "^0.0.6",
     "ora": "^3",
     "shelljs": "^0.8.5",
     "tauris": "^1.0.0",

@@ -7,22 +7,27 @@ import createLogger from './util/logger';
 import start from './util/time';
 import { checkDeps } from './util/dependencies';
 import chalk from 'chalk';
+import isElevated from 'is-elevated';
+import { isSupported } from './util/system';
+import installDocker from './installers/docker';
 
 const { prompt } = Enquirer;
 
 async function askToInstall(name: string, onNo?: () => void) {
-	const { shouldInstall }: any = await prompt({
-		type: 'confirm',
-		name: 'shouldInstall',
-		message: chalk`scadm benötigt {cyan ${name}}. Dieses tool automatisch installieren?`
-	});
+  const { shouldInstall }: any = await prompt({
+    type: 'confirm',
+    name: 'shouldInstall',
+    message: chalk`scadm benötigt {cyan ${name}}. Dieses tool automatisch installieren?`,
+  });
 
-	if (shouldInstall) return true;
-	else {
-		console.log(`Bitte installieren Sie ${name} und führen Sie diesen Befehl dann wieder aus.`);
-		onNo?.();
-		process.exit(1);
-	}
+  if (shouldInstall) return true;
+  else {
+    console.log(
+      `Bitte installieren Sie ${name} und führen Sie diesen Befehl dann wieder aus.`
+    );
+    onNo?.();
+    process.exit(1);
+  }
 }
 
 const setup = new Command('setup')
@@ -31,6 +36,14 @@ const setup = new Command('setup')
   .handler(async () => {
     const finish = start();
     const logger = createLogger('scadm');
+    if (!(await isSupported()))
+      (logger.error('Ihr system is nicht unterstützt.') as any) ||
+        finish(false) ||
+        process.exit(1);
+    if (!(await isElevated()))
+      (logger.error('Dieser befehl benötigt root-berichtigungen.') as any) ||
+        finish('cancelled') ||
+        process.exit(1);
 
     console.log(
       '\n' +
@@ -57,16 +70,28 @@ const setup = new Command('setup')
 
     spinner.succeed();
 
-    if (!dependencyState.git) {
-      askToInstall('git', () => finish('cancelled'))
-    }
-
-    if (!dependencyState.docker) {
+    if (!dependencyState.docker.available) {
       await askToInstall('docker', () => finish('cancelled'));
+      try {
+        await installDocker();
+      } catch {
+        logger.error(
+          'Installation fehlgeschlagen. Bitte installieren Sie docker manuell.'
+        );
+        finish(false);
+      }
     }
 
-		if (!dependencyState['docker-compose']) {
+    if (!dependencyState['docker-compose'].available) {
       await askToInstall('docker-compose', () => finish('cancelled'));
+      try {
+        // await installCompose();
+      } catch {
+        logger.error(
+          'Installation fehlgeschlagen. Bitte installieren Sie docker-compose manuell.'
+        );
+        finish(false);
+      }
     }
 
     finish(true);

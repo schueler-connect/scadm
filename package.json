@@ -1,6 +1,6 @@
 {
   "name": "scadm",
-  "version": "0.0.0-alpha.6",
+  "version": "0.0.0-alpha.7",
   "description": "Administrations-tool für das self-hosted SC backend",
   "main": "dist/index.js",
   "targets": {

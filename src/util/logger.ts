@@ -16,7 +16,7 @@ function _log(prefix: string, ...message: any) {
   );
 }
 
-interface Logger {
+export interface Logger {
   parent?: Logger;
   prefix: string;
   success: (...message: any[]) => void;

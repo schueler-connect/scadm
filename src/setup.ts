@@ -11,6 +11,10 @@ import isElevated from 'is-elevated';
 import { isSupported } from './util/system';
 import installDocker from './installers/docker';
 import installCompose from './installers/docker-compose';
+import { existsSync } from 'fs';
+import { resolve } from 'path';
+import { homedir } from 'os';
+import askUntilOk from './util/ask-loop';
 
 const { prompt } = Enquirer;
 
@@ -94,6 +98,51 @@ const setup = new Command('setup')
         finish(false);
       }
     }
+
+    const configPath = '/etc/scadm';
+    if (existsSync(configPath)) {
+      const { proceed }: any = await prompt({
+        name: 'proceed',
+        type: 'confirm',
+        message:
+          'Es scheint bereits konfigurationsdateien für scadm auf Ihrem system zu geben. Diese überschreieben?',
+      });
+
+      if (!proceed) {
+        // TODO: Verify that existing configs are valid
+        finish(true);
+        process.exit(0);
+      }
+    }
+
+    logger.info(
+      chalk`Wenn hinter einer frage {cyan (blauer text in klammern)} steht, können Sie die Frage leerlassen, um den Wert in den Klammern zu übernehmen`
+    );
+
+    const configData = {
+      installLocation:
+        (
+          (await prompt({
+            name: 'location',
+            type: 'text',
+            message: chalk`In welchem pfad soll der Server installiert werden? {cyan ${resolve(
+              homedir(),
+              '.scadm/serve'
+            )}}`,
+          })) as any
+        ).location || resolve(homedir(), '.scadm/serve'),
+      cloudToken: (
+        (await askUntilOk(
+          {
+            type: 'text',
+            name: 'token',
+            message: chalk`Cloud-registrierungs-token (dieses erhalten Sie per Anfrage an {cyan mail@schuelerconnect.org}) {red.bold *}`,
+          },
+          ({ token }: any) => !!token
+        )) as any
+      ).token,
+			authProvider: 'local',
+    };
 
     finish(true);
   });

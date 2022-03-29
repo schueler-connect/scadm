@@ -57,7 +57,7 @@ export default async function installDocker() {
     await execAsync('apt-get install -y lsb-release');
     spinner.text = 'repo (1/2)';
     await execAsync(
-      'curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg'
+      'curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg'
     );
     spinner.text = 'repo (2/2)';
     await execAsync(

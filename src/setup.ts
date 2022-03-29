@@ -10,6 +10,7 @@ import chalk from 'chalk';
 import isElevated from 'is-elevated';
 import { isSupported } from './util/system';
 import installDocker from './installers/docker';
+import installCompose from './installers/docker-compose';
 
 const { prompt } = Enquirer;
 
@@ -85,7 +86,7 @@ const setup = new Command('setup')
     if (!dependencyState['docker-compose'].available) {
       await askToInstall('docker-compose', () => finish('cancelled'));
       try {
-        // await installCompose();
+        await installCompose();
       } catch {
         logger.error(
           'Installation fehlgeschlagen. Bitte installieren Sie docker-compose manuell.'

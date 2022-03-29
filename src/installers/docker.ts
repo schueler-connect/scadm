@@ -1,8 +1,17 @@
 import chalk from 'chalk';
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
 import ora from 'ora';
 import { which } from 'shelljs';
 import createLogger from '../util/logger';
+
+export function execAsync(command: string) {
+	return new Promise((resolve, reject) => {
+		exec(command, (error, stdout, _stderr) => {
+			if (error) reject(error);
+			resolve(stdout);
+		})
+	});
+}
 
 export default async function installDocker() {
   const logger = createLogger('installer', 'magenta');
@@ -18,52 +27,52 @@ export default async function installDocker() {
     );
     spinner.start();
     spinner.text = 'dnf-plugins-core';
-    execSync('dnf -y install dnf-plugins-core');
-    execSync(
+    await execAsync('dnf -y install dnf-plugins-core');
+    await execAsync(
       'dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo'
     );
     spinner.text = 'docker-ce';
-    execSync('dnf -y install docker-ce');
+    await execAsync('dnf -y install docker-ce');
     spinner.text = 'docker-ce-cli';
-    execSync('dnf -y install docker-ce-cli');
+    await execAsync('dnf -y install docker-ce-cli');
     spinner.text = 'containerd.io';
-    execSync('dnf -y install containerd.io');
+    await execAsync('dnf -y install containerd.io');
     spinner.text = chalk`{cyan docker} wird installiert`;
-    execSync('systemctl start docker');
-  } else if (which('apt')) {
+    await execAsync('systemctl start docker');
+  } else if (which('apt-get')) {
     spinner.stop();
     logger.info(
       chalk`Package-manager {cyan apt} erkannt. Packages für Ubuntu/Debian werden installiert.`
     );
     spinner.start();
-    spinner.text = 'apt update';
-    execSync('apt update');
+    spinner.text = 'apt-get update';
+    await execAsync('apt-get update');
     spinner.text = 'ca-certificates';
-    execSync('apt install -y ca-certificates');
+    await execAsync('apt-get install -y ca-certificates');
     spinner.text = 'curl';
-    execSync('apt install -y curl');
+    await execAsync('apt-get install -y curl');
     spinner.text = 'gnupg';
-    execSync('apt install -y gnupg');
+    await execAsync('apt-get install -y gnupg');
     spinner.text = 'lsb-release';
-    execSync('apt install -y lsb-release');
+    await execAsync('apt-get install -y lsb-release');
     spinner.text = 'repo (1/2)';
-    execSync(
+    await execAsync(
       'curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg'
     );
     spinner.text = 'repo (2/2)';
-    execSync(
+    await execAsync(
       'echo \
         "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
         $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null'
     );
     spinner.text = 'apt update';
-		execSync('apt update');
+		await execAsync('apt-get update');
 		spinner.text = 'docker-ce';
-		execSync('apt install -y docker-ce');
+		await execAsync('apt-get install -y docker-ce');
 		spinner.text = 'docker-ce-cli';
-		execSync('apt install -y docker-ce-cli');
+		await execAsync('apt-get install -y docker-ce-cli');
 		spinner.text = 'containerd.io';
-		execSync('apt install -y containerd.io');
+		await execAsync('apt-get install -y containerd.io');
     spinner.text = chalk`{cyan docker} wird installiert`;
   } else if (which('yum')) {
     spinner.stop();
@@ -72,18 +81,18 @@ export default async function installDocker() {
     );
     spinner.start();
     spinner.text = 'yum-utils';
-    execSync('yum install -y yum-utils');
-    execSync(
+    await execAsync('yum install -y yum-utils');
+    await execAsync(
       'yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo'
     );
     spinner.text = 'docker-ce';
-    execSync('yum install -y docker-ce');
+    await execAsync('yum install -y docker-ce');
     spinner.text = 'docker-ce-cli';
-    execSync('yum install -y docker-ce-cli');
+    await execAsync('yum install -y docker-ce-cli');
     spinner.text = 'containerd.io';
-    execSync('yum install -y containerd.io');
+    await execAsync('yum install -y containerd.io');
     spinner.text = chalk`{cyan docker} wird installiert`;
-    execSync('systemctl start docker');
+    await execAsync('systemctl start docker');
   } else {
     spinner.fail();
     logger.error(

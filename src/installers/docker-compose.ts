@@ -1,15 +1,6 @@
 import chalk from 'chalk';
-import { exec } from 'child_process';
 import ora from 'ora';
-
-export function execAsync(command: string) {
-  return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, _stderr) => {
-      if (error) reject(error);
-      resolve(stdout);
-    });
-  });
-}
+import { execAsync } from '../util/exec';
 
 export default async function installCompose() {
   const spinner = ora({
@@ -19,6 +10,7 @@ export default async function installCompose() {
 
   try {
 		await execAsync('echo "curl -L \"https://github.com/docker/compose/releases/download/1.29.2/docker-compose-\$(uname -s)-\$(uname -m)\" -o /usr/local/bin/docker-compose" | sh');
+		await execAsync('chmod +x /usr/local/bin/docker-compose');
   } catch (e) {
     spinner.fail();
     throw e;

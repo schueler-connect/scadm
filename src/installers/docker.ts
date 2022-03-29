@@ -1,17 +1,8 @@
 import chalk from 'chalk';
-import { exec } from 'child_process';
 import ora from 'ora';
 import { which } from 'shelljs';
+import { execAsync } from '../util/exec';
 import createLogger from '../util/logger';
-
-export function execAsync(command: string) {
-  return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, _stderr) => {
-      if (error) reject(error);
-      resolve(stdout);
-    });
-  });
-}
 
 export default async function installDocker() {
   const logger = createLogger('installer', 'magenta');

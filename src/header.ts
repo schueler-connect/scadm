@@ -23,7 +23,5 @@ const header = chalk`
       {rgb(178,176,255) ‘}        {reset \\____/\\___/|_| |_|_| |_|\\___|\\___|\\__|}  scadm v${getPackageVersion(
         __dirname
       )}
-
-{cyan scadm} ist ein helper-tool um self-hosted-deployments des Schüler Connect server zu managen.
 `.slice(1, -1);
 export default header;

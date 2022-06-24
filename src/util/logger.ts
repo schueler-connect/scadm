@@ -19,6 +19,7 @@ function _log(prefix: string, ...message: any) {
 export interface Logger {
   parent?: Logger;
   prefix: string;
+  silent: boolean;
   success: (...message: any[]) => void;
   info: (...message: any[]) => void;
   warn: (...message: any[]) => void;
@@ -44,11 +45,22 @@ const levelColor = {
 };
 
 export default function createLogger(name: string): Logger;
+export default function createLogger(name: string, silent: boolean): Logger;
 export default function createLogger(
   name: string,
   color: keyof typeof chalk
 ): Logger;
+export default function createLogger(
+  name: string,
+  color: keyof typeof chalk,
+  silent: boolean
+): Logger;
 export default function createLogger(name: string, parent: Logger): Logger;
+export default function createLogger(
+  name: string,
+  parent: Logger,
+  silent: boolean
+): Logger;
 export default function createLogger(
   name: string,
   parent: Logger,
@@ -56,31 +68,53 @@ export default function createLogger(
 ): Logger;
 export default function createLogger(
   name: string,
-  a1?: keyof typeof chalk | Logger,
-  a2?: keyof typeof chalk
+  parent: Logger,
+  color: keyof typeof chalk,
+  silent: boolean
+): Logger;
+export default function createLogger(
+  name: string,
+  ...args: (keyof typeof chalk | Logger | boolean)[]
 ): Logger {
+  const parent: Logger | undefined = <Logger | undefined>(
+    args.find((x) => typeof x === 'object' && x !== null)
+  );
+  const color: keyof typeof chalk | undefined = <
+    keyof typeof chalk | undefined
+  >args.find((x) => typeof x === 'string');
+  const silent: boolean =
+    <boolean | undefined>args.find((x) => typeof x === 'boolean') ||
+    parent?.silent ||
+    false;
+
   const pCols = [chalk.green, chalk.blue, chalk.yellow, chalk.magenta];
-  const prefix = `${
-    typeof a1 === 'object' && a1 ? a1.prefix + ' ' : ''
-  }${(typeof a1 === 'string'
-    ? (chalk[a1] as any)
-    : a2
-    ? chalk[a2]
-    : pCols[_countParents(a1) % pCols.length])(name)}`;
+  const prefix = `${parent ? parent.prefix + ' ' : ''}${(!!color
+    ? <any>chalk[color]
+    : pCols[_countParents(parent) % pCols.length])(name)}`;
 
   return {
-    parent: typeof a1 !== 'string' ? a1 : undefined,
+    silent: silent,
+    parent: parent,
     prefix: prefix,
     success: (...message: any[]) =>
-      _log(prefix + ` ${levelColor.success('success')}`, ...message),
+      silent
+        ? undefined
+        : _log(prefix + ` ${levelColor.success('success')}`, ...message),
     info: (...message: any[]) =>
-      _log(prefix + ` ${levelColor.info('info')}`, ...message),
+      silent
+        ? undefined
+        : _log(prefix + ` ${levelColor.info('info')}`, ...message),
     warn: (...message: any[]) =>
-      _log(prefix + ` ${levelColor.warn('warn')}`, ...message),
+      silent
+        ? undefined
+        : _log(prefix + ` ${levelColor.warn('warn')}`, ...message),
     error: (...message: any[]) =>
-      _log(prefix + ` ${levelColor.error('error')}`, ...message),
+      silent
+        ? undefined
+        : _log(prefix + ` ${levelColor.error('error')}`, ...message),
     custom: (prefix_: string, ...message: any[]) =>
-      _log(prefix + ' ' + prefix_, ...message),
-    topLevel: (prefix_: string, ...message: any[]) => _log(prefix_, ...message),
+      silent ? undefined : _log(prefix + ' ' + prefix_, ...message),
+    topLevel: (prefix_: string, ...message: any[]) =>
+      silent ? undefined : _log(prefix_, ...message),
   };
 }

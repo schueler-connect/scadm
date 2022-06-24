@@ -30,12 +30,15 @@
     "@jsbits/get-package-version": "^1.0.3",
     "@types/ora": "^3",
     "chalk": "^3",
+    "chromafi": "^2.1.0",
     "enquirer": "^2.3.6",
     "is-elevated": "^3.0.0",
     "linus": "^0.0.6",
+    "nanoid": "^3.3.2",
     "ora": "^3",
     "shelljs": "^0.8.5",
-    "tauris": "^1.0.0",
-    "wrap-ansi": "^3.0.1"
+    "tauris": "^1.7.5",
+    "wrap-ansi": "^3.0.1",
+    "zod": "^3.14.3"
   }
 }

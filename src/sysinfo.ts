@@ -7,9 +7,10 @@ import { getSystemInfo, isSupported } from './util/system';
 
 const sysinfo = new Command('sysinfo')
   .describe('Allgemeine Systeminformationen abrufen')
+	.usage('scadm sysinfo [...options]')
   .handler(async (argv) => {
     const sysinfo = await getSystemInfo();
-    const l1 = createLogger('scadm');
+    const l1 = createLogger('scadm', argv.s);
     const supported = chalk.green('✔︎');
     const unsupported = chalk.red('✖︎');
 

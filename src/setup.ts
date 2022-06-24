@@ -2,7 +2,6 @@ import Enquirer from 'enquirer';
 import { Command } from 'tauris';
 import header from './header';
 import ora from 'ora';
-import { which } from 'shelljs';
 import createLogger from './util/logger';
 import start from './util/time';
 import { checkDeps } from './util/dependencies';
@@ -11,10 +10,13 @@ import isElevated from 'is-elevated';
 import { isSupported } from './util/system';
 import installDocker from './installers/docker';
 import installCompose from './installers/docker-compose';
-import { existsSync } from 'fs';
+import { existsSync, promises } from 'fs';
 import { resolve } from 'path';
 import { homedir } from 'os';
 import askUntilOk from './util/ask-loop';
+import { Config, configPath } from './util/config';
+import { nanoid } from 'nanoid';
+import { randomFillSync } from 'crypto';
 
 const { prompt } = Enquirer;
 
@@ -38,8 +40,10 @@ async function askToInstall(name: string, onNo?: () => void) {
 const setup = new Command('setup')
   .describe('Server herunterladen und konfigurieren')
   .usage('scadm setup')
-  .handler(async () => {
+  .clearRoot('s')
+  .handler(async function (argv) {
     const finish = start();
+    // Note to self: Silence is deliberatly not implemented here
     const logger = createLogger('scadm');
     if (!(await isSupported()))
       (logger.error('Ihr system is nicht unterstützt.') as any) ||
@@ -59,7 +63,7 @@ const setup = new Command('setup')
         '\n'
     );
     logger.info(
-      'Diese tool hilft Ihnen, Schüler Connect auf Ihrem server einzurichten. Bitte fahren Sie den computer während der installation nicht herunter.'
+      'Dieses tool hilft Ihnen, Schüler Connect auf Ihrem server einzurichten. Bitte fahren Sie den computer während der installation nicht herunter.'
     );
     console.log();
 
@@ -70,7 +74,7 @@ const setup = new Command('setup')
     });
     if (!ready) return finish('cancelled');
 
-    const spinner = ora().start('Suchen nach benötigten tools suchen');
+    const spinner = ora().start('Suchen nach benötigten tools');
     const dependencyState = checkDeps();
 
     spinner.succeed();
@@ -99,7 +103,6 @@ const setup = new Command('setup')
       }
     }
 
-    const configPath = '/etc/scadm';
     if (existsSync(configPath)) {
       const { proceed }: any = await prompt({
         name: 'proceed',
@@ -119,32 +122,54 @@ const setup = new Command('setup')
       chalk`Wenn hinter einer frage {cyan (blauer text in klammern)} steht, können Sie die Frage leerlassen, um den Wert in den Klammern zu übernehmen`
     );
 
-    const configData = {
+    const configData: Config = {
       installLocation:
         (
           (await prompt({
             name: 'location',
             type: 'text',
-            message: chalk`In welchem pfad soll der Server installiert werden? {cyan ${resolve(
+            message: chalk`In welchem pfad soll der Server installiert werden? {cyan (${resolve(
               homedir(),
-              '.scadm/serve'
-            )}}`,
+              '.scadm/server/'
+            )})}`,
           })) as any
-        ).location || resolve(homedir(), '.scadm/serve'),
+        ).location || resolve(homedir(), '.scadm/server/'),
       cloudToken: (
         (await askUntilOk(
           {
-            type: 'text',
+            type: 'password',
             name: 'token',
-            message: chalk`Cloud-registrierungs-token (dieses erhalten Sie per Anfrage an {cyan mail@schuelerconnect.org}) {red.bold *}`,
+            message: chalk`Cloud-registrierungs-token (dieses erhalten Sie per Anfrage an {magenta info@schuelerconnect.org}) {red.bold *}`,
           },
-          ({ token }: any) => !!token
+          ({ token }: any) => !!token && token.length === 48
         )) as any
       ).token,
-			authProvider: 'local',
+      authProvider: 'local',
+      authSettings: {
+        adminCredentials: {
+          username: nanoid(32),
+          password: nanoid(32),
+        },
+        jwtToken: randomFillSync(Buffer.alloc(32)).toString('base64'),
+      },
     };
 
+    await promises.mkdir(configData.installLocation);
+    logger.info('Installationsordner erstellt');
+    await promises.writeFile(configPath, JSON.stringify(configData));
+    logger.info('Einstellungen gespeichert');
+
     finish(true);
+    logger.success('Der server wird nun gestartet.');
+
+    // Start server by running the CLI's `start` command.
+    // This is equivalent to `exec('scadm start');`, except that it doesn't
+    // spawn a child process and doesn't require the `scadm` CLI command to
+    // actually be installed.
+    // TODO: Another idea: provide an alternative to `process.exit()` as an
+    //       argument to the handler so that it can be passed up if `noExit`
+    //       is set by the caller of `parse()`.
+    await this.root().parse(['start'], { noExit: true });
   });
 
 export default setup;

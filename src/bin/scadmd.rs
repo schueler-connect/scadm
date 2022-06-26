@@ -1,6 +1,9 @@
 use daemonize::Daemonize;
 use parking_lot::Mutex;
-use std::fs::{create_dir_all, read_dir, remove_file, File, set_permissions, Permissions};
+use std::fs::{
+  create_dir_all, read_dir, remove_file, set_permissions, File, Permissions,
+};
+use std::io::ErrorKind;
 use std::os::unix::prelude::PermissionsExt;
 use std::path::Path;
 use std::process::exit;
@@ -79,7 +82,16 @@ fn main() {
     .privileged_action(|| {
       let folder_path = Path::new(&*SOCK_PATH).parent().unwrap();
       create_dir_all(folder_path).unwrap();
-			set_permissions(folder_path, Permissions::from_mode(0o777)).unwrap();
+      set_permissions(folder_path, Permissions::from_mode(0o777))
+        .or_else(|e| {
+          if e.kind() == ErrorKind::PermissionDenied {
+						eprintln!("Bitte starten sie das daemon mit root-berechtigungen");
+						exit(1);
+					} else {
+            Err(e)
+          }
+        })
+        .unwrap();
     })
     .stderr(stderr);
 
@@ -101,6 +113,7 @@ async fn tokio_main(e: ExitGuard) {
     create_dir_all(DATA_PATH).unwrap();
   }
 
+	remove_file(&*SOCK_PATH).unwrap();
   let listener = UnixListener::bind(&*SOCK_PATH).unwrap();
 
   let state = Arc::new(Mutex::new(DaemonState {

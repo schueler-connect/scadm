@@ -1,0 +1,30 @@
+[package]
+name = "scadm"
+version = "0.1.0"
+edition = "2021"
+
+# Version policy: Always specify major+minor, optionally patch for critical
+# dependencies (e.g. cryptographic libraries)
+[dependencies]
+clap = { version = "3.2", features = ["derive"] }
+indoc = { version = "1.0" }
+daemonize = { version = "0.4" }
+tokio = { version = "1.19", features = ["full"] }
+bytes = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+rmp-serde = "1.1"
+parking_lot = "0.12"
+lazy_static = "1.4"
+nix = "0.24"
+
+[lib]
+name = "scadm_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "scadm"
+path = "src/bin/scadm.rs"
+
+[[bin]]
+name = "scadmd"
+path = "src/bin/scadmd.rs"

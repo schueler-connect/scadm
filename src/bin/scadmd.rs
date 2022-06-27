@@ -1,23 +1,35 @@
 use daemonize::Daemonize;
 use parking_lot::Mutex;
+use scadm_core::conn::Listener;
 use std::fs::{
   create_dir_all, read_dir, remove_file, set_permissions, File, Permissions,
 };
 use std::io::ErrorKind;
 use std::os::unix::prelude::PermissionsExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::sync::Arc;
-use tokio::{
-  net::{UnixListener, UnixStream},
-  runtime::Builder,
-};
+use tokio::runtime::Builder;
 
 use scadm_core::{
   conn::Connection,
   constants::{DATA_PATH, PID_FILE, SOCK_PATH},
-  frame::Frame,
+  frame::Frame
 };
+
+macro_rules! debug {
+	($t:tt) => {
+		if std::env::var("DEBUG").is_ok() {
+			println!($t);
+		}
+	};
+	($t:tt, $($e:expr),+) => {
+		if std::env::var("DEBUG").is_ok() {
+			println!($t, $($e),+);
+		}}
+}
+
+pub(crate) use debug;
 
 struct ExitGuard;
 
@@ -35,21 +47,30 @@ pub struct DaemonState {
 
 pub type State = Arc<Mutex<DaemonState>>;
 
-async fn handle_client(sock: UnixStream, state: State) {
-  let mut conn = Connection::from_stream(sock);
+async fn handle_client(conn: &mut Connection, state: State) {
+  println!("info: Received client connection");
 
-  while let Some(frame) = conn.read_frame().await.unwrap() {
+  println!(
+    "info: Constructed `Connection` around socket. Attempting to read \
+frame"
+  );
+
+  while let Ok(frame) = conn.recv_message() {
+    println!("info: Frame read from client");
+
     match frame {
-      Frame::Stop => {
+      Frame::Stop() => {
         {
           let mut state = state.lock();
           drop(state.exit_guard.take());
         }
-        conn.write_frame(Frame::Stopped).await.unwrap();
+        println!("info: Sending response frame");
+        conn.send_message(&Frame::Stopped()).unwrap();
+        println!("info: Response frame sent");
         exit(0);
       }
       _ => eprintln!(
-        "notice: Ignoring unexpected server response message from \
+        "notice: Ignoring unexpected message from \
 client"
       ),
     }
@@ -85,9 +106,9 @@ fn main() {
       set_permissions(folder_path, Permissions::from_mode(0o777))
         .or_else(|e| {
           if e.kind() == ErrorKind::PermissionDenied {
-						eprintln!("Bitte starten sie das daemon mit root-berechtigungen");
-						exit(1);
-					} else {
+            eprintln!("Bitte starten sie das daemon mit root-berechtigungen");
+            exit(1);
+          } else {
             Err(e)
           }
         })
@@ -99,7 +120,7 @@ fn main() {
 
   println!("scadmd now active");
 
-  Builder::new_current_thread()
+  Builder::new_multi_thread()
     .enable_all()
     .build()
     .unwrap()
@@ -113,19 +134,21 @@ async fn tokio_main(e: ExitGuard) {
     create_dir_all(DATA_PATH).unwrap();
   }
 
-	remove_file(&*SOCK_PATH).unwrap();
-  let listener = UnixListener::bind(&*SOCK_PATH).unwrap();
-
   let state = Arc::new(Mutex::new(DaemonState {
     exit_guard: Some(e),
   }));
 
+  let listener = Listener::new(PathBuf::from(&*SOCK_PATH)).unwrap();
+
   loop {
-    match listener.accept().await {
-      Ok((sock, _addr)) => {
+    match listener.open() {
+      Ok(mut conn) => {
+				debug!("Incoming client connection to be handled");
         let state = state.clone();
+				debug!("Cloned state");
         tokio::spawn(async move {
-          handle_client(sock, state).await;
+					debug!("Spawned tokio task");
+          handle_client(&mut conn, state).await;
         });
       }
       Err(_) => eprintln!("notice: Connection failed"),

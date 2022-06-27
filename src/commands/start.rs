@@ -19,6 +19,7 @@ sind, dass scadmd nicht läuft, können sie den neustart mit --force erzwingen")
   Command::new("cargo")
     .args(["run", "--bin", "scadmd", "--"])
 		.env("RUST_BACKTRACE", "full")
+		.env("DEBUG", "true")
     .spawn()
     .expect("Starten fehlgeschlagen");
 

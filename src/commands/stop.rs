@@ -5,23 +5,23 @@ use crate::{
   frame::Frame,
   Result,
 };
+use nix::errno::Errno;
 use std::{
   fs::{read_to_string, remove_file},
   path::Path,
   process::exit,
   time::Duration,
 };
-use nix::errno::Errno;
 use tokio::time::timeout;
 
 async fn end() -> Result<()> {
-  let mut conn = Connection::connect(Path::new(&*SOCK_PATH)).await?;
+  let mut conn = Connection::open(Path::new(&*SOCK_PATH))?;
 
-  conn.write_frame(Frame::Stop).await?;
+  conn.send_message(&Frame::Stop())?;
 
-  if let Some(frame) = conn.read_frame().await? {
+  if let Ok(frame) = conn.recv_message() {
     match frame {
-      Frame::Stopped => {
+      Frame::Stopped() => {
         println!("Erfolgreich beendet");
       }
       _ => return Err(Error::WithMessage("Unerwartete Nachricht".to_owned())),
@@ -35,22 +35,21 @@ async fn end() -> Result<()> {
   Ok::<(), Error>(())
 }
 
-async fn kill() {
+async fn kill() -> Result<()> {
+  let pid = read_to_string(Path::new(PID_FILE))
+    .or_else(
+      #[allow(unreachable_code)]
+      |_| {
+        eprintln!("PID-datei konnte nicht eingelesen werden");
+        exit(1);
+        Err(())
+      },
+    )
+    .unwrap()
+    .parse()?;
+
   nix::sys::signal::kill(
-    nix::unistd::Pid::from_raw(
-      read_to_string(Path::new(PID_FILE))
-        .or_else(
-          #[allow(unreachable_code)]
-          |_| {
-            eprintln!("PID-datei konnte nicht eingelesen werden");
-            exit(1);
-            Err(())
-          },
-        )
-        .unwrap()
-        .parse()
-        .unwrap(),
-    ),
+    nix::unistd::Pid::from_raw(pid),
     nix::sys::signal::SIGKILL,
   )
   .or_else(|e| {
@@ -63,6 +62,8 @@ async fn kill() {
   })
   .unwrap();
   println!("Beendigung erzwungen");
+
+  Ok(())
 }
 
 pub async fn stop(force: bool) {
@@ -74,6 +75,7 @@ pub async fn stop(force: bool) {
     if force {
       println!("info: Beendigung wird im notfall erzwungen");
       let to = timeout(Duration::from_secs(60), async move {
+        #[allow(unused_must_use)]
         if let Err(_) = end().await {
           kill().await;
         }
@@ -81,7 +83,10 @@ pub async fn stop(force: bool) {
       .await;
 
       match to {
-        Err(_) => kill().await,
+        #[allow(unused_must_use)]
+        Err(_) => {
+          kill().await;
+        }
         _ => {}
       };
     } else {

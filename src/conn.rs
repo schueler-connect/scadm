@@ -1,68 +1,140 @@
-use super::{
-  error::Result,
-  frame::{self, Frame},
-};
-use bytes::BytesMut;
-use std::{io::Cursor, path::Path};
-use tokio::{
-  io::{AsyncReadExt, AsyncWriteExt, BufWriter},
-  net::UnixStream,
+// Adapted from https://gist.github.com/rust-play/3359f7575a71a077409ba0d6b16a6098
+
+use super::frame::Frame as Message;
+use super::{error::Error, Result, debug};
+use libc::{c_char, mkfifo};
+use std::os::unix::ffi::OsStrExt;
+use std::{
+  fs::{File, OpenOptions},
+  io::{self, Read, Write},
+  path::{Path, PathBuf},
 };
 
+pub struct Listener {
+  path: PathBuf,
+}
+
+impl Listener {
+  pub fn new(path: PathBuf) -> Result<Self> {
+		debug!("Instantiating listener {}", path.display());
+    let os_str = path.clone().into_os_string();
+    let slice = os_str.as_bytes();
+    let mut bytes = Vec::with_capacity(slice.len() + 1);
+    bytes.extend_from_slice(slice);
+    bytes.push(0); // zero terminated string
+    let _ = std::fs::remove_file(&path);
+		debug!("  Removed old files");
+    if unsafe { mkfifo((&bytes[0]) as *const u8 as *const c_char, 0o644) } != 0
+    {
+			debug!("  libc::mkfifo failed");
+			debug!("--");
+      Err(Error::IO(io::Error::last_os_error()))
+    } else {
+			debug!("  Created listener");
+			debug!("--");
+      Ok(Listener { path })
+    }
+  }
+  /// Blocks until anyone connects to this fifo.
+  pub fn open(&self) -> Result<Connection> {
+		debug!("Listener {} waiting for connection", &self.path.display());
+    let mut pipe = OpenOptions::new().read(true).open(&self.path)?;
+
+    let mut pid_bytes = [0u8; 4];
+		debug!("  Reading PID");
+    pipe.read_exact(&mut pid_bytes)?;
+    let pid = u32::from_ne_bytes(pid_bytes);
+		debug!("  Connecting to PID {}", pid);
+
+    drop(pipe);
+		debug!("  Dropped pipe handle");
+
+    let read = OpenOptions::new()
+      .read(true)
+      .open(format!("/tmp/rust-fifo-read.{}", pid))?;
+
+    let write = OpenOptions::new()
+      .write(true)
+      .open(format!("/tmp/rust-fifo-write.{}", pid))?;
+
+		debug!("  Created rust-fifo-read.{} and rust-fifo-write.{} files", pid, pid);
+		debug!("  Connection ready");
+		debug!("--");
+
+    Ok(Connection { read, write })
+  }
+}
+impl Drop for Listener {
+  fn drop(&mut self) {
+    let _ = std::fs::remove_file(&self.path);
+  }
+}
+
 pub struct Connection {
-  stream: BufWriter<UnixStream>,
-  buffer: BytesMut,
+  read: File,
+  write: File,
 }
 
 impl Connection {
-  pub fn from_stream(stream: UnixStream) -> Self {
-    Connection {
-      stream: BufWriter::new(stream),
-      buffer: BytesMut::with_capacity(8 * 1024),
-    }
+  pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
+		debug!("Opening connection from client");
+    let pid = std::process::id();
+
+    let read_fifo_path = format!("/tmp/rust-fifo-write.{}", pid);
+    let read_fifo = Listener::new(read_fifo_path.into())?;
+
+    let write_fifo_path = format!("/tmp/rust-fifo-read.{}", pid);
+    let write_fifo = Listener::new(write_fifo_path.into())?;
+
+		debug!("  Created rust-fifo-read.{} and rust-fifo-write.{} files", pid, pid);
+
+    let mut pipe = OpenOptions::new().write(true).open(path.as_ref())?;
+
+		debug!("  Connected to pipe");
+
+    let pid_bytes: [u8; 4] = u32::to_ne_bytes(pid);
+    pipe.write_all(&pid_bytes)?;
+    pipe.flush()?;
+
+		debug!("  Sent PID to pipe");
+
+    let write = OpenOptions::new().write(true).open(&write_fifo.path)?;
+
+    let read = OpenOptions::new().read(true).open(&read_fifo.path)?;
+
+		debug!("  Connected to read and write channels");
+		debug!("--");
+
+    Ok(Self { read, write })
   }
 
-  pub async fn connect(path: &Path) -> Result<Self> {
-    Ok(Connection {
-      stream: BufWriter::new(UnixStream::connect(path).await?),
-      buffer: BytesMut::with_capacity(8 * 1024),
-    })
-  }
-
-  pub async fn read_frame(&mut self) -> crate::Result<Option<Frame>> {
-    loop {
-      if let Some(frame) = self.parse_frame()? {
-        return Ok(Some(frame));
-      }
-
-      if 0 == self.stream.read_buf(&mut self.buffer).await? {
-        if self.buffer.is_empty() {
-          return Ok(None);
-        } else {
-          return Err("connection reset by peer".into());
-        }
-      }
-    }
-  }
-
-  pub async fn write_frame(&mut self, frame: Frame) -> Result<()> {
-    let mut buf: Vec<u8> = Vec::with_capacity(8 * 1024);
-    let buf = frame
-      .write(&mut buf)
-      .or_else(|e: frame::Error| -> Result<&mut Vec<u8>> { Err(e.into()) })?;
-    self.stream.write_all(&buf[..]).await?;
+  pub fn send_message(&mut self, msg: &Message) -> Result<()> {
+		debug!("Called send_message");
+    let msg = bincode::serialize(msg).expect("Serialization failed");
+    self.write.write_all(&usize::to_ne_bytes(msg.len()))?;
+		debug!("  Serialized and wrote length header");
+    self.write.write_all(&msg[..])?;
+    self.write.flush()?;
+		debug!("  Wrote and flushed message");
+		debug!("--");
     Ok(())
   }
 
-  fn parse_frame(&mut self) -> crate::Result<Option<Frame>> {
-    use frame::Error::Incomplete;
+  pub fn recv_message(&mut self) -> Result<Message> {
+		debug!("Called recv_message");
 
-    let mut buf = Cursor::new(&self.buffer[..]);
+    let mut len_bytes = [0u8; std::mem::size_of::<usize>()];
+    self.read.read_exact(&mut len_bytes)?;
+    let len = usize::from_ne_bytes(len_bytes);
 
-    match Frame::parse(&mut buf) {
-      Ok(frame) => Ok(Some(frame)),
-      Err(Incomplete) => Ok(None),
-      Err(e) => Err(e.into()),
-    }
+		debug!("  Got message header");
+
+    let mut buf = vec![0; len];
+    self.read.read_exact(&mut buf[..])?;
+
+		debug!("  Got message contents; Deserializing");
+		debug!("--");
+
+    Ok(bincode::deserialize(&buf[..]).expect("Deserialization failed"))
   }
 }

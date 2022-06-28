@@ -1,11 +1,7 @@
 use daemonize::Daemonize;
 use parking_lot::Mutex;
 use scadm_core::conn::Listener;
-use std::fs::{
-  create_dir_all, read_dir, remove_file, set_permissions, File, Permissions,
-};
-use std::io::ErrorKind;
-use std::os::unix::prelude::PermissionsExt;
+use std::fs::{create_dir_all, read_dir, remove_file, File};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::sync::Arc;
@@ -93,25 +89,19 @@ fn main() {
     };
   }
 
+  if let Err(_) = read_dir(&*DATA_PATH) {
+    create_dir_all(&*DATA_PATH).unwrap();
+  }
+
   let daemonize = Daemonize::new()
     .pid_file(PID_FILE)
     .chown_pid_file(true)
     // .group("daemon")
-    .working_directory(DATA_PATH)
+    .working_directory(&*DATA_PATH)
     .stdout(stdout)
     .privileged_action(|| {
       let folder_path = Path::new(&*SOCK_PATH).parent().unwrap();
-      create_dir_all(folder_path).unwrap();
-      set_permissions(folder_path, Permissions::from_mode(0o777))
-        .or_else(|e| {
-          if e.kind() == ErrorKind::PermissionDenied {
-            eprintln!("Bitte starten sie das daemon mit root-berechtigungen");
-            exit(1);
-          } else {
-            Err(e)
-          }
-        })
-        .unwrap();
+      create_dir_all(folder_path).ok();
     })
     .stderr(stderr);
 
@@ -129,10 +119,6 @@ fn main() {
 }
 
 async fn tokio_main(e: ExitGuard) {
-  if let Err(_) = read_dir(DATA_PATH) {
-    create_dir_all(DATA_PATH).unwrap();
-  }
-
   let state = Arc::new(Mutex::new(DaemonState {
     exit_guard: Some(e),
   }));

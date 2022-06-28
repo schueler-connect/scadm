@@ -14,15 +14,14 @@ use tokio::runtime::Builder;
 use scadm_core::{
   conn::Connection,
   constants::{DATA_PATH, PID_FILE, SOCK_PATH},
-  frame::Frame
+  frame::Frame,
 };
 
 macro_rules! debug {
 	($t:tt) => {
 		if std::env::var("DEBUG").is_ok() {
 			println!($t);
-		}
-	};
+		}};
 	($t:tt, $($e:expr),+) => {
 		if std::env::var("DEBUG").is_ok() {
 			println!($t, $($e),+);
@@ -143,11 +142,11 @@ async fn tokio_main(e: ExitGuard) {
   loop {
     match listener.open() {
       Ok(mut conn) => {
-				debug!("Incoming client connection to be handled");
+        debug!("Incoming client connection to be handled");
         let state = state.clone();
-				debug!("Cloned state");
+        debug!("Cloned state");
         tokio::spawn(async move {
-					debug!("Spawned tokio task");
+          debug!("Spawned tokio task");
           handle_client(&mut conn, state).await;
         });
       }

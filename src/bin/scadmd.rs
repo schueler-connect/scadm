@@ -1,10 +1,9 @@
 use daemonize::Daemonize;
-use parking_lot::Mutex;
-use scadm_core::conn::Listener;
-use std::fs::{create_dir_all, read_dir, remove_file, File};
+use scadm_core::conn::{Listener, Pipe, DummyConnection};
+use scadm_core::daemon::{State, ExitGuard, start, DaemonState};
+use std::fs::{create_dir_all, read_dir, File};
 use std::path::{Path, PathBuf};
 use std::process::exit;
-use std::sync::Arc;
 use tokio::runtime::Builder;
 
 use scadm_core::{
@@ -26,23 +25,7 @@ macro_rules! debug {
 
 pub(crate) use debug;
 
-struct ExitGuard;
-
-impl Drop for ExitGuard {
-  fn drop(&mut self) {
-    println!("Exiting scadmd");
-    remove_file(PID_FILE).or::<()>(Ok(())).unwrap();
-    println!("PID File Removed");
-  }
-}
-
-pub struct DaemonState {
-  exit_guard: Option<ExitGuard>,
-}
-
-pub type State = Arc<Mutex<DaemonState>>;
-
-async fn handle_client(conn: &mut Connection, state: State) {
+async fn handle_client(conn: &mut Connection, state: DaemonState) {
   println!("info: Received client connection");
 
   println!(
@@ -56,13 +39,20 @@ frame"
     match frame {
       Frame::Stop() => {
         {
-          let mut state = state.lock();
+          let mut state = state.lock().await;
           drop(state.exit_guard.take());
         }
         println!("info: Sending response frame");
         conn.send_message(&Frame::Stopped()).unwrap();
         println!("info: Response frame sent");
         exit(0);
+      }
+      Frame::QueryStatus() => {
+        let status = {
+          let state = state.lock().await;
+          state.status
+        };
+        conn.send_message(&Frame::Status(status)).unwrap();
       }
       _ => eprintln!(
         "notice: Ignoring unexpected message from \
@@ -113,17 +103,16 @@ fn main() {
     .enable_all()
     .build()
     .unwrap()
-    .block_on(async {
-      tokio_main(e).await;
-    })
+    .block_on(async { tokio_main(e).await })
 }
 
 async fn tokio_main(e: ExitGuard) {
-  let state = Arc::new(Mutex::new(DaemonState {
-    exit_guard: Some(e),
-  }));
+  let state = State::new(e).await;
 
   let listener = Listener::new(PathBuf::from(&*SOCK_PATH)).unwrap();
+
+  let state_1 = state.clone();
+  tokio::spawn(async move { start(&state_1, &mut DummyConnection).await; });
 
   loop {
     match listener.open() {

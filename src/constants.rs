@@ -12,8 +12,13 @@ lazy_static::lazy_static! {
     p.push(".scadm");
     p
   };
+  pub static ref CONFIG_PATH: PathBuf = {
+    let mut p = DATA_PATH.clone();
+    p.push("cfg.yaml");
+    p
+  };
   // pub static ref SOCK_PATH: &'static str = {
-    // 	if let Ok(_) = read_dir("/run") {
+  // 	if let Ok(_) = read_dir("/run") {
   // 		"/run/scadmd/scadmd.sock"
   // 	} else {
   // 		"/var/run/scadmd/scadmd.sock"

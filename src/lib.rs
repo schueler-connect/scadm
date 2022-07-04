@@ -4,6 +4,11 @@ pub mod frame;
 pub use error::Result;
 pub mod commands;
 pub mod constants;
+pub mod status;
+pub mod daemon;
+pub mod config;
+pub mod installation;
+pub mod github;
 
 macro_rules! debug {
 	($t:tt) => {

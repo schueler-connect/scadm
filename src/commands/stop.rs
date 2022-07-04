@@ -1,5 +1,5 @@
 use crate::{
-  conn::Connection,
+  conn::{Connection, Pipe},
   constants::{PID_FILE, SOCK_PATH},
   error::Error,
   frame::Frame,

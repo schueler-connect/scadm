@@ -1,5 +1,8 @@
 use crate::constants::PID_FILE;
-use std::{path::Path, process::{Command, exit}};
+use std::{
+  path::Path,
+  process::{exit, Command},
+};
 
 use super::stop::stop;
 
@@ -8,25 +11,30 @@ pub async fn start(force: bool) {
     if force {
       stop(true).await;
     } else {
-			eprintln!("Eine PID-Datei für scadmd besteht bereits. Dies bedeutet, \
+      eprintln!(
+        "Eine PID-Datei für scadmd besteht bereits. Dies bedeutet, \
 dass scadmd entweder bereits läuft, oder abgestürzt ist. Wenn sie sich sicher \
-sind, dass scadmd nicht läuft, können sie den neustart mit --force erzwingen");
-			exit(1);
-		}
+sind, dass scadmd nicht läuft, können sie den neustart mit --force erzwingen"
+      );
+      exit(1);
+    }
   }
 
   #[cfg(debug_assertions)]
   Command::new("cargo")
     .args(["run", "--bin", "scadmd", "--"])
-		.env("RUST_BACKTRACE", "full")
-		.env("DEBUG", "true")
+    .env("RUST_BACKTRACE", "full")
+    .env("DEBUG", "true")
     .spawn()
     .expect("Starten fehlgeschlagen");
 
   #[cfg(not(debug_assertions))]
   Command::new("scadmd")
+    // Even in production, use full debug logging
+    .env("RUST_BACKTRACE", "full")
+    .env("DEBUG", "true")
     .spawn()
     .expect("Starten fehlgeschlagen");
 
-	println!("Erfolgreich gestartet");
+  println!("Erfolgreich gestartet");
 }

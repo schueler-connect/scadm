@@ -1,6 +1,6 @@
 // Adapted from https://gist.github.com/rust-play/3359f7575a71a077409ba0d6b16a6098
 
-use super::frame::Frame as Message;
+use super::frame::Frame;
 use super::{error::Error, Result, debug};
 use libc::{c_char, mkfifo};
 use std::os::unix::ffi::OsStrExt;
@@ -64,6 +64,7 @@ impl Listener {
     Ok(Connection { read, write })
   }
 }
+
 impl Drop for Listener {
   fn drop(&mut self) {
     let _ = std::fs::remove_file(&self.path);
@@ -73,6 +74,11 @@ impl Drop for Listener {
 pub struct Connection {
   read: File,
   write: File,
+}
+
+pub trait Pipe<Message> {
+	fn send_message(&mut self, msg: &Message) -> Result<()>;
+	fn recv_message(&mut self) -> Result<Message>;
 }
 
 impl Connection {
@@ -106,9 +112,11 @@ impl Connection {
 		debug!("--");
 
     Ok(Self { read, write })
-  }
+	}
+}
 
-  pub fn send_message(&mut self, msg: &Message) -> Result<()> {
+impl Pipe<Frame> for Connection {
+  fn send_message(&mut self, msg: &Frame) -> Result<()> {
 		debug!("Called send_message");
     let msg = bincode::serialize(msg).expect("Serialization failed");
     self.write.write_all(&usize::to_ne_bytes(msg.len()))?;
@@ -120,7 +128,7 @@ impl Connection {
     Ok(())
   }
 
-  pub fn recv_message(&mut self) -> Result<Message> {
+  fn recv_message(&mut self) -> Result<Frame> {
 		debug!("Called recv_message");
 
     let mut len_bytes = [0u8; std::mem::size_of::<usize>()];
@@ -137,4 +145,16 @@ impl Connection {
 
     Ok(bincode::deserialize(&buf[..]).expect("Deserialization failed"))
   }
+}
+
+pub struct DummyConnection;
+
+impl<M> Pipe<M> for DummyConnection where M: Default {
+	fn send_message(&mut self, _: &M) -> Result<()> {
+		Ok(())
+	}
+
+	fn recv_message(&mut self) -> Result<M> {
+		Ok(M::default())
+	}
 }
